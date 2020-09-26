@@ -1,5 +1,6 @@
 #include <iostream>
 #include <random>
+#include <ctime>
 
 #include "TrafficLight.h"
 
@@ -12,6 +13,13 @@ T MessageQueue<T>::receive()
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
     // to wait for and receive new messages and pull them from the queue using move semantics. 
     // The received object should then be returned by the receive function. 
+    std::unique_lock<std::mutex> uLock(_mutex);
+    _condVar.wait(uLock, [this](){return !_queue.empty();});
+
+    T msg = std::move(_queue.back());
+    _queue.pop_back();
+
+    return msg;
 }
 
 template <typename T>
@@ -21,7 +29,7 @@ void MessageQueue<T>::send(T &&msg)
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
     std::lock_guard<std::mutex> lck(_mutex);
     _queue.emplace_back(std::move(msg));
-    std::cout << " Message added to the queue \n";
+    // std::cout << " Message added to the queue \n";
     _condVar.notify_one();
 }
 
@@ -39,6 +47,18 @@ void TrafficLight::waitForGreen()
     // FP.5b : add the implementation of the method waitForGreen, in which an infinite while-loop 
     // runs and repeatedly calls the receive function on the message queue. 
     // Once it receives TrafficLightPhase::green, the method returns.
+
+    while(true){
+        TrafficLightPhase phase = _msgQueue.receive();
+        if(phase == TrafficLightPhase::kGreen){
+            std::cout << "Test green \n";
+            break;
+        }
+        else{
+                std::cout << "Test red \n";
+        }
+    }
+
 }
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
@@ -64,6 +84,7 @@ void TrafficLight::cycleThroughPhases()
     long cycleDuration;
     // init stop watch
     lastUpdate = std::chrono::system_clock::now();
+    std::srand(std::time(nullptr));
     
     while(true){
         // compute time difference to stop watch
@@ -74,10 +95,16 @@ void TrafficLight::cycleThroughPhases()
 
         if (timeSinceLastUpdate >= cycleDuration){
             // Toggle current phase
-            if(_currentPhase == TrafficLightPhase::kRed)
+            if(_currentPhase == TrafficLightPhase::kRed){
                 _currentPhase = TrafficLightPhase::kGreen;
-            else
+                // std::cout << "Test green \n";
+            }
+            else{
                 _currentPhase = TrafficLightPhase::kRed;
+                // std::cout << "Test red \n";
+            }
+
+            // std::cout << "Test \n";
             
             // update message queue through move semantics; //TODO - done
             _msgQueue.send(std::move(_currentPhase));
