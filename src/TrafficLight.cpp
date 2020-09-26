@@ -17,8 +17,10 @@ T MessageQueue<T>::receive()
     _condVar.wait(uLock, [this](){return !_queue.empty();});
 
     T msg = std::move(_queue.back());
-    _queue.pop_back();
-
+    // _queue.pop_back();
+    _queue.clear(); 
+    // recommendation to make outer interrsections work - but queue
+    // https://knowledge.udacity.com/questions/267031
     return msg;
 }
 
@@ -51,11 +53,11 @@ void TrafficLight::waitForGreen()
     while(true){
         TrafficLightPhase phase = _msgQueue.receive();
         if(phase == TrafficLightPhase::kGreen){
-            std::cout << "Test green \n";
+            // std::cout << "Test green \n";
             break;
         }
         else{
-                std::cout << "Test red \n";
+                // std::cout << "Test red \n";
         }
     }
 
@@ -84,14 +86,19 @@ void TrafficLight::cycleThroughPhases()
     long cycleDuration;
     // init stop watch
     lastUpdate = std::chrono::system_clock::now();
-    std::srand(std::time(nullptr));
-    
+
+    std::random_device rd;
+    std::mt19937 eng(rd());
+    std::uniform_int_distribution<> distr(4000.0, 6000.0);
+    cycleDuration = distr(eng);
+
     while(true){
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
         // compute time difference to stop watch
         long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
-
-        // duration will be a random value between 4 and 6 //TODO
-        cycleDuration = 4;
+        
+        // std::cout << "Cycle Duration " << cycleDuration << " thread id " << std::this_thread::get_id() << "\n";
 
         if (timeSinceLastUpdate >= cycleDuration){
             // Toggle current phase
@@ -105,13 +112,14 @@ void TrafficLight::cycleThroughPhases()
             }
 
             // std::cout << "Test \n";
-            
+            // TrafficLightPhase phase = _currentPhase;
             // update message queue through move semantics; //TODO - done
             _msgQueue.send(std::move(_currentPhase));
 
             // reset the stop-watch
             lastUpdate = std::chrono::system_clock::now();
 
+            cycleDuration = distr(eng);
         }
         
     }
